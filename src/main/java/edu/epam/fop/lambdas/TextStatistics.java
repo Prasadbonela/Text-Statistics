@@ -1,6 +1,5 @@
 package edu.epam.fop.lambdas;
 
-import edu.epam.fop.lambdas.Token.Type;
 import java.util.Set;
 
 public final class TextStatistics {
@@ -10,19 +9,70 @@ public final class TextStatistics {
   }
 
   public static TokenStatisticsCalculator<Token, Long> countTokens() {
-    return null;
+    return (statistics, tokens) -> {
+      while (tokens.hasNext()) {
+        statistics.merge(tokens.next(), 1L, Long::sum);
+      }
+    };
   }
+
 
   public static TokenStatisticsCalculator<Token, Long> countKnownTokensWithMaxLimit(int maxLimit) {
-    return null;
+    return (statistics, tokens) -> {
+
+      while (tokens.hasNext()) {
+        statistics.computeIfPresent(tokens.next(), (t, count) -> {
+          if (count < maxLimit) {
+            count++;
+          }
+          return count;
+        });
+      }
+    };
   }
 
-  public static TokenStatisticsCalculator<Token, Boolean> findUnknownTokensOfTypes(Set<Type> types) {
-    return null;
+  public static TokenStatisticsCalculator<Token, Boolean> findUnknownTokensOfTypes(Set<Token.Type> types) {
+    return (statistics, tokens) -> {
+      while (tokens.hasNext()) {
+        statistics.computeIfAbsent(tokens.next(), token -> {
+          for (Token.Type type : types) {
+            if (token.type().equals(type)) {
+              return true;
+            }
+          }
+          return null;
+        });
+      }
+    };
   }
 
-  public static TokenStatisticsCalculator<Token, Integer> combinedSearch(int maxLimit, Set<Type> types) {
-    return null;
-  }
+  public static TokenStatisticsCalculator<Token, Integer> combinedSearch(int maxLimit, Set<
+          Token.Type> types) {
+    return (statistics, tokens) -> {
 
+      while (tokens.hasNext()) {
+        Token token = tokens.next();
+        if (! statistics.containsKey(token)) {
+          // Token is not in the map
+          statistics.compute(token, (t, value) -> value != null ? value : - 1);
+        } else {
+          // Token exists in the map
+          int count = statistics.get(token);
+          if (types.contains(token.type())) {
+            if (count < maxLimit) {
+              statistics.compute(token, (t, value) -> 0);
+            } else {
+              statistics.compute(token, (t, value) -> 1);
+            }
+          } else {
+            if (count < maxLimit) {
+              statistics.compute(token, (t, value) -> 2);
+            } else {
+              statistics.compute(token, (t, value) -> 3);
+            }
+          }
+        }
+      }
+    };
+  }
 }
